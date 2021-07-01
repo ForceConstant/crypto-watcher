@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # TODO: Uncomment the epd_2in13_V2 line and comment the epd_stub one if you want to run it on the display
-from epd_stub import EPD
-#from epd2in13_V2 import EPD
+#from epd_stub import EPD
+from epd2in13_V2 import EPD
 from PIL import Image, ImageDraw, ImageFont
 from pisugar2py import PiSugar2
 from typing import List, Tuple, Dict, Callable
@@ -18,13 +18,13 @@ import epdconfig
 
 logging.basicConfig(level=logging.DEBUG)
 
-SLEEP_TIME_BETWEEN_REFRESHES = 5
+SLEEP_TIME_BETWEEN_REFRESHES = 600
 RUN_ONCE = False
-INVERTED_COLORS = True
+INVERTED_COLORS = False
 
 def fetch_ohlc(symbol: str) -> List[Tuple[float, ...]]:
     res = requests.get("https://api.binance.com/api/v3/klines",
-                       params={"symbol": symbol.upper(), "interval": "1h", "limit": 25})
+                       params={"symbol": symbol.upper(), "interval": "1d", "limit": 30})
     res.raise_for_status()
 
     json_data = json.loads(res.text)
@@ -97,18 +97,9 @@ def main():
     try:
         logging.info("Running for: " + str(len(sys.argv) - 1) +
                      " cryptocurrencies")
-        try:
-            logging.info("Initializing PiSugar2...")
-            ps = PiSugar2()
-            logging.info("Getting battery level...")
-            battery_percentage = ps.get_battery_percentage()
-            logging.info(
-                "Battery: " + str(int(battery_percentage.value)) + " %")
-            logging.info("Syncing RTC...")
-            ps.set_pi_from_rtc()
-        except IOError as e:
-            logging.info(e)
-            ps = False
+
+        ps = False
+        battery_percentage = 0
 
         logging.info("Initiating EPD...")
         epd = EPD()
@@ -120,12 +111,12 @@ def main():
         img = Image.new("1", (epd.height, epd.width), 255)
 
         logging.info("Loading font...")
-        font_path_location = "/home/pi/projects/crypto-watcher/OpenSans-Regular.ttf"
+        font_path_location = "/home/pi/crypto-watcher/OpenSans-Regular.ttf"
         font = ImageFont.truetype(font_path_location, 20)
         font_small = ImageFont.truetype(font_path_location, 16)
         font_tiny = ImageFont.truetype(font_path_location, 12)
 
-        timezone = pytz.timezone("Europe/Lisbon")
+        timezone = pytz.timezone("America/New_York")
 
         positive_filling = get_color(1)
         negative_filling = get_color(0)
@@ -174,17 +165,17 @@ def main():
                         draw.text((130, 106), text=battery_display_text,
                                 font=font_tiny, fill=positive_filling)
                     logging.info("Left crypto...")
-                    draw.text((8, 5), text="{crypto_name} {value}$".format(
+                    draw.text((8, 5), text="{crypto_name} ${value}".format(
                         crypto_name=crypto_name, value=price_to_str(price)), font=font, fill=positive_filling)
-                    draw.text((8, 30), text="{diff_symbol}{diff_value}$ {diff_symbol}{diff_percentage}%".format(
+                    draw.text((8, 30), text="{diff_symbol}${diff_value} {diff_symbol}{diff_percentage}%".format(
                         diff_symbol=diff_symbol, diff_value=price_to_str(diff), diff_percentage=diff_percentage), font=font_small, fill=positive_filling)
                     render_ohlc_data(18, ohlc, draw, font_small)
                 else:
                     # Right side of the display
                     logging.info("Right crypto...")
-                    draw.text((130, 5), "{crypto_name} {value}$".format(
+                    draw.text((130, 5), "{crypto_name} ${value}".format(
                         crypto_name=crypto_name, value=price_to_str(price)), font=font, fill=positive_filling)
-                    draw.text((130, 30), text="{diff_symbol}{diff_value}$ {diff_symbol}{diff_percentage}%".format(
+                    draw.text((130, 30), text="{diff_symbol}${diff_value} {diff_symbol}{diff_percentage}%".format(
                         diff_symbol=diff_symbol, diff_value=price_to_str(diff), diff_percentage=diff_percentage), font=font_small, fill=positive_filling)
                     render_ohlc_data(138, ohlc, draw, font_small)
                     if(i == len(sys.argv) - 1):
